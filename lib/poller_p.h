@@ -3,6 +3,8 @@
 
 #include <QtCore/QTimer>
 
+class QModbusClient;
+
 
 namespace ModbusPoller {
 
@@ -11,6 +13,7 @@ class PollerPrivate
 public:
     PollerPrivate()
         : pollTimer(new QTimer)
+        , modbusClient(nullptr)
     {}
 
     ~PollerPrivate()
@@ -22,8 +25,8 @@ public:
         delete pollTimer;
     }
 
-
     QTimer *pollTimer;
+    QModbusClient *modbusClient;
 };
 
 }   // ModbusPoller

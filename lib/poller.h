@@ -5,6 +5,8 @@
 
 #include <QtCore/QObject>
 
+class QModbusClient;
+
 
 namespace ModbusPoller {
 
@@ -24,6 +26,8 @@ class Poller : public QObject
 public:
     explicit Poller(quint16 pollingInterval = 1000, QObject *parent = nullptr);
     ~Poller();
+
+    void setModbusClient(QModbusClient *modbusClient);
 
     /** start polling */
     void start();

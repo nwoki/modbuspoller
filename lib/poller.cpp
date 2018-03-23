@@ -19,6 +19,16 @@ Poller::~Poller()
 
 void Poller::onPollTimeout()
 {
+    qDebug("[Poller::onPollTimeout]");
+}
+
+void Poller::setModbusClient(QModbusClient *modbusClient)
+{
+    if (d->pollTimer->isActive()) {
+        d->pollTimer->stop();
+    }
+
+    d->modbusClient = modbusClient;
 }
 
 void Poller::start()
@@ -28,7 +38,7 @@ void Poller::start()
     }
 }
 
-void ModbusPoller::Poller::stop()
+void Poller::stop()
 {
     if (d->pollTimer->isActive()) {
         d->pollTimer->stop();
