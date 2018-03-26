@@ -27,6 +27,13 @@ public:
     explicit Poller(quint16 pollingInterval = 1000, QObject *parent = nullptr);
     ~Poller();
 
+    /**
+     * @brief readRegister
+     * @param registerAddress the address to read from
+     * @param length the number of registers to read subsequentially from the @ref registerAddress
+     */
+    void readRegister(int registerAddress, quint16 length);
+
     void setModbusClient(QModbusClient *modbusClient);
 
     /** start polling */
@@ -36,6 +43,7 @@ public:
     void stop();
 
 private Q_SLOTS:
+    void onModbusReplyFinished();
     void onPollTimeout();
 
 private:
