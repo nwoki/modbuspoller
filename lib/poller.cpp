@@ -4,7 +4,6 @@
 #include <QtCore/QDebug>
 
 #include <QtSerialBus/QModbusClient>
-#include <QtSerialBus/QModbusDataUnit>
 
 
 namespace ModbusPoller {
@@ -24,6 +23,16 @@ Poller::~Poller()
     delete d;
 }
 
+void Poller::enqueueReadCommand(const QModbusDataUnit &readCommand)
+{
+    d->readQueue.enqueue(readCommand);
+}
+
+void Poller::enqueueWriteCommand(const QModbusDataUnit &writeCommand)
+{
+    d->writeQueue.enqueue(writeCommand);
+}
+
 void Poller::onModbusReplyFinished()
 {
     auto reply = qobject_cast<QModbusReply *>(sender());
@@ -40,6 +49,8 @@ void Poller::onModbusReplyFinished()
             qDebug() << "ENTRY: " << entry;
             qDebug() << "Value: " << unit.value(i);
         }
+
+        Q_EMIT dataReady(unit);
     } else if (reply->error() == QModbusDevice::ProtocolError) {
         qDebug() << tr("Read response error: %1 (Mobus exception: 0x%2)").
                                     arg(reply->errorString()).
@@ -59,16 +70,26 @@ void Poller::onPollTimeout()
 {
     qDebug("[Poller::onPollTimeout]");
 
-
-    // tmp. For now just read. Next step, use enqueuing
-    readRegister(512, 10);
+    // we give priority to the write queue
+    if (!d->writeQueue.isEmpty()) {
+        // TODO
+    } else if (!d->readQueue.isEmpty()) {
+        readRegister(d->readQueue.dequeue());
+    } else {
+        // TODO - run default commands
+        qDebug("Nothing to read/write...");
+    }
 }
 
 void Poller::readRegister(int registerAddress, quint16 length)
 {
     QModbusDataUnit readDU = QModbusDataUnit(QModbusDataUnit::HoldingRegisters, registerAddress, length);
+    readRegister(readDU);
+}
 
-    if (auto *reply = d->modbusClient->sendReadRequest(readDU, 1)) {
+void Poller::readRegister(const QModbusDataUnit& command)
+{
+    if (auto *reply = d->modbusClient->sendReadRequest(command, 1)) {
         if (!reply->isFinished()) {
             connect(reply, &QModbusReply::finished, this, &Poller::onModbusReplyFinished);
         } else {
@@ -78,6 +99,11 @@ void Poller::readRegister(int registerAddress, quint16 length)
     } else {
         qDebug() << "[Poller::readRegister] READ ERROR : " << d->modbusClient->errorString();
     }
+}
+
+QModbusDataUnit Poller::prepareReadCommand(int regAddr, quint16 readLength)
+{
+    return QModbusDataUnit(QModbusDataUnit::HoldingRegisters, regAddr, readLength);
 }
 
 void Poller::setModbusClient(QModbusClient *modbusClient)

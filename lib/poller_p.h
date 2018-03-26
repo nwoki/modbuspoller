@@ -1,7 +1,11 @@
 #ifndef MODBUSPOLLER_POLLER_P_H
 #define MODBUSPOLLER_POLLER_P_H
 
+#include <QtCore/QQueue>
 #include <QtCore/QTimer>
+
+#include <QtSerialBus/QModbusDataUnit>
+
 
 class QModbusClient;
 
@@ -27,6 +31,8 @@ public:
 
     QTimer *pollTimer;
     QModbusClient *modbusClient;
+    QQueue<QModbusDataUnit> readQueue;
+    QQueue<QModbusDataUnit> writeQueue;
 };
 
 }   // ModbusPoller
