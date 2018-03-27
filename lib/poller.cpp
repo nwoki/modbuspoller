@@ -8,10 +8,11 @@
 
 namespace ModbusPoller {
 
-Poller::Poller(quint16 pollingInterval, QObject *parent)
+Poller::Poller(const QModbusDataUnit &defaultCommand, quint16 pollingInterval, QObject *parent)
     : QObject(parent)
     , d(new PollerPrivate)
 {
+    d->defaultPollCommand = defaultCommand;
     d->pollTimer->setInterval(pollingInterval);
     d->pollTimer->setSingleShot(true);
 
@@ -47,7 +48,6 @@ void Poller::onModbusReplyFinished()
             const QString entry = tr("Address: %1, Value: %2").arg(unit.startAddress() + i)
                                      .arg(QString::number(unit.value(i), unit.registerType() <= QModbusDataUnit::Coils ? 10 : 16));
             qDebug() << "ENTRY: " << entry;
-            qDebug() << "Value: " << unit.value(i);
         }
 
         Q_EMIT dataReady(unit);
@@ -62,7 +62,6 @@ void Poller::onModbusReplyFinished()
     }
 
     reply->deleteLater();
-
     d->pollTimer->start();
 }
 
@@ -77,7 +76,13 @@ void Poller::onPollTimeout()
         readRegister(d->readQueue.dequeue());
     } else {
         // TODO - run default commands
-        qDebug("Nothing to read/write...");
+        if (d->defaultPollCommand.isValid()) {
+            qDebug("Nothing to read/write... Defaulting");
+            readRegister(d->defaultPollCommand);
+        } else {
+            qDebug("No valid default command to send");
+            d->pollTimer->start();
+        }
     }
 }
 
@@ -87,7 +92,7 @@ void Poller::readRegister(int registerAddress, quint16 length)
     readRegister(readDU);
 }
 
-void Poller::readRegister(const QModbusDataUnit& command)
+void Poller::readRegister(const QModbusDataUnit &command)
 {
     if (auto *reply = d->modbusClient->sendReadRequest(command, 1)) {
         if (!reply->isFinished()) {
@@ -101,9 +106,14 @@ void Poller::readRegister(const QModbusDataUnit& command)
     }
 }
 
-QModbusDataUnit Poller::prepareReadCommand(int regAddr, quint16 readLength)
+QModbusDataUnit Poller::prepareReadCommand(QModbusDataUnit::RegisterType type, int regAddr, quint16 readLength)
 {
-    return QModbusDataUnit(QModbusDataUnit::HoldingRegisters, regAddr, readLength);
+    return QModbusDataUnit(type, regAddr, readLength);
+}
+
+void Poller::setDefaultPollCommand(const QModbusDataUnit &defaultPollCommand)
+{
+    d->defaultPollCommand = defaultPollCommand;
 }
 
 void Poller::setModbusClient(QModbusClient *modbusClient)

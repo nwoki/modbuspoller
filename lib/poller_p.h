@@ -33,6 +33,8 @@ public:
     QModbusClient *modbusClient;
     QQueue<QModbusDataUnit> readQueue;
     QQueue<QModbusDataUnit> writeQueue;
+
+    QModbusDataUnit defaultPollCommand;
 };
 
 }   // ModbusPoller

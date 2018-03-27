@@ -26,8 +26,8 @@ class Poller : public QObject
     Q_OBJECT
 
 public:
-    explicit Poller(quint16 pollingInterval = 1000, QObject *parent = nullptr);
-    ~Poller();
+    explicit Poller(const QModbusDataUnit &defaultCommand = QModbusDataUnit(), quint16 pollingInterval = 1000, QObject *parent = nullptr);
+    virtual ~Poller();
 
     /**
      * @brief enqueueReadCommand
@@ -43,11 +43,13 @@ public:
 
     /**
      * @brief prepareReadCommand
+     * @param the type of reading/writing to do
      * @param regAddr the register address to read from
      * @param readLength the length to read for
      */
-    static QModbusDataUnit prepareReadCommand(int regAddr, quint16 readLength);
+    static QModbusDataUnit prepareReadCommand(QModbusDataUnit::RegisterType type, int regAddr, quint16 readLength);
 
+    void setDefaultPollCommand(const QModbusDataUnit &defaultPollCommand);
     void setModbusClient(QModbusClient *modbusClient);
 
     /** start polling */
@@ -56,12 +58,12 @@ public:
     /** stop polling */
     void stop();
 
-Q_SIGNALS:
+protected:
     /**
-     * @brief dataReady - emitted when a read request is successful
+     * @brief dataReady - called when a read request is successful
      * @param readData data object with the response from a read command
      */
-    void dataReady(const QModbusDataUnit &readData);
+    virtual void dataReady(const QModbusDataUnit &readData) = 0;
 
 private Q_SLOTS:
     void onModbusReplyFinished();
