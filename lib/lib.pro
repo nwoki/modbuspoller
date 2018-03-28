@@ -1,4 +1,4 @@
-QT += core
+QT += core serialbus
 
 TARGET = modbuspoller
 TEMPLATE = lib
