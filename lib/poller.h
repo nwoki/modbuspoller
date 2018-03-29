@@ -21,7 +21,7 @@ class PollerPrivate;
  *
  * Poller class used to poll info from the board
  */
-class Poller : public QObject
+class MODBUSPOLLERSHARED_EXPORT Poller : public QObject
 {
     Q_OBJECT
 

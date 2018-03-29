@@ -1,6 +1,8 @@
 #ifndef MODBUSPOLLER_POLLER_P_H
 #define MODBUSPOLLER_POLLER_P_H
 
+#include "poller_global.h"
+
 #include <QtCore/QQueue>
 #include <QtCore/QTimer>
 
@@ -12,7 +14,7 @@ class QModbusClient;
 
 namespace ModbusPoller {
 
-class PollerPrivate
+class MODBUSPOLLERSHARED_EXPORT PollerPrivate
 {
 public:
     PollerPrivate()
