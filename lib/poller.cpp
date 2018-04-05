@@ -17,6 +17,9 @@ Poller::Poller(const QModbusDataUnit &defaultCommand, quint16 pollingInterval, Q
     d->pollTimer->setSingleShot(true);
 
     connect(d->pollTimer, &QTimer::timeout, this, &Poller::onPollTimeout);
+
+    // notify starting state
+    Q_EMIT stateChanged(d->state);
 }
 
 Poller::~Poller()
@@ -73,9 +76,11 @@ void Poller::onPollTimeout()
     if (!d->writeQueue.isEmpty()) {
         // TODO
     } else if (!d->readQueue.isEmpty()) {
+        setState(POLLING);
         readRegister(d->readQueue.dequeue());
     } else {
-        // TODO - run default commands
+        setState(POLLING);
+        // run default commands
         if (d->defaultPollCommand.isValid()) {
             qDebug("Nothing to read/write... Defaulting");
             readRegister(d->defaultPollCommand);
@@ -125,10 +130,20 @@ void Poller::setModbusClient(QModbusClient *modbusClient)
     d->modbusClient = modbusClient;
 }
 
+void Poller::setState(Poller::State state)
+{
+    if (d->state != state) {
+        d->state = state;
+        Q_EMIT stateChanged(d->state);
+    }
+}
+
 void Poller::start()
 {
     if (!d->pollTimer->isActive()) {
         d->pollTimer->start();
+
+        setState(POLLING);
     }
 }
 

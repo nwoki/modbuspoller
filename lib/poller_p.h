@@ -1,6 +1,7 @@
 #ifndef MODBUSPOLLER_POLLER_P_H
 #define MODBUSPOLLER_POLLER_P_H
 
+#include "poller.h"
 #include "poller_global.h"
 
 #include <QtCore/QQueue>
@@ -20,6 +21,7 @@ public:
     PollerPrivate()
         : pollTimer(new QTimer)
         , modbusClient(nullptr)
+        , state(Poller::IDLE)
     {}
 
     ~PollerPrivate()
@@ -37,6 +39,7 @@ public:
     QQueue<QModbusDataUnit> writeQueue;
 
     QModbusDataUnit defaultPollCommand;
+    Poller::State state;
 };
 
 }   // ModbusPoller

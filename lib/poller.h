@@ -26,6 +26,23 @@ class MODBUSPOLLERSHARED_EXPORT Poller : public QObject
     Q_OBJECT
 
 public:
+    /**
+     * @brief The State enum
+     *
+     * enumerates the different states the poller can assume
+     */
+    enum State {
+        /** poller is doing nothing */
+        IDLE = 0,
+
+        /** poller is reading from the board */
+        POLLING,
+
+        /** poller is writing info to the board */
+        WRITING
+    };
+    Q_ENUM(State)
+
     explicit Poller(const QModbusDataUnit &defaultCommand = QModbusDataUnit(), quint16 pollingInterval = 1000, QObject *parent = nullptr);
     virtual ~Poller();
 
@@ -58,6 +75,9 @@ public:
     /** stop polling */
     void stop();
 
+Q_SIGNALS:
+    void stateChanged(Poller::State state);
+
 protected:
     /**
      * @brief dataReady - called when a read request is successful
@@ -77,6 +97,8 @@ private:
      */
     void readRegister(int registerAddress, quint16 length);
     void readRegister(const QModbusDataUnit &command);
+
+    void setState(Poller::State state);
 
     PollerPrivate * const d;
 };
