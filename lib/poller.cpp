@@ -68,13 +68,30 @@ void Poller::onModbusReplyFinished()
     d->pollTimer->start();
 }
 
+void Poller::onModbusWriteReplyFinished()
+{
+    QModbusReply *reply = qobject_cast<QModbusReply *>(sender());
+    if (!reply) {
+        qDebug("[Poller::onModbusWriteReplyFinished] NO REPLY");
+        return;
+    }
+
+    if (reply->error() == QModbusDevice::ProtocolError) {
+        qDebug() << tr("Write response error: %1 (Mobus exception: 0x%2)").arg(reply->errorString()).arg(reply->rawResult().exceptionCode(), -1, 16);
+    } else if (reply->error() != QModbusDevice::NoError) {
+        qDebug() << tr("Write response error: %1 (code: 0x%2)").arg(reply->errorString()).arg(reply->error());
+    }
+    reply->deleteLater();
+}
+
 void Poller::onPollTimeout()
 {
     qDebug("[Poller::onPollTimeout]");
 
     // we give priority to the write queue
     if (!d->writeQueue.isEmpty()) {
-        // TODO
+        setState(WRITING);
+        writeRegister(d->writeQueue.dequeue());
     } else if (!d->readQueue.isEmpty()) {
         setState(POLLING);
         readRegister(d->readQueue.dequeue());
@@ -153,6 +170,29 @@ void Poller::stop()
         d->pollTimer->stop();
 
         setState(IDLE);
+    }
+}
+
+void Poller::writeRegister(const QModbusDataUnit &command)
+{
+    if (auto *reply = d->modbusClient->sendReadRequest(command, 1)) {
+        if (!reply->isFinished()) {
+            connect(reply, &QModbusReply::finished, this, &Poller::onModbusReplyFinished);
+        } else {
+            qDebug("[Poller::readRegister] DELETING REPLY");
+            delete reply; // broadcast replies return immediately
+        }
+    } else {
+        qDebug() << "[Poller::readRegister] READ ERROR : " << d->modbusClient->errorString();
+    }
+
+    if (QModbusReply *reply = d->modbusClient->sendWriteRequest(command, 1)) {
+        if (!reply->isFinished()) {
+            connect(reply, &QModbusReply::finished, this, &Poller::onModbusWriteReplyFinished);
+        } else {
+            qDebug("[Poller::writeRegister] DELETING REPLY");
+            delete reply; // broadcast replies return immediately
+        }
     }
 }
 

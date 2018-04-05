@@ -87,6 +87,7 @@ protected:
 
 private Q_SLOTS:
     void onModbusReplyFinished();
+    void onModbusWriteReplyFinished();
     void onPollTimeout();
 
 private:
@@ -99,6 +100,8 @@ private:
     void readRegister(const QModbusDataUnit &command);
 
     void setState(Poller::State state);
+
+    void writeRegister(const QModbusDataUnit &command);
 
     PollerPrivate * const d;
 };
