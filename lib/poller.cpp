@@ -151,6 +151,8 @@ void Poller::stop()
 {
     if (d->pollTimer->isActive()) {
         d->pollTimer->stop();
+
+        setState(IDLE);
     }
 }
 
