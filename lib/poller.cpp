@@ -82,6 +82,7 @@ void Poller::onModbusWriteReplyFinished()
         qDebug() << tr("Write response error: %1 (code: 0x%2)").arg(reply->errorString()).arg(reply->error());
     }
     reply->deleteLater();
+    d->pollTimer->start();
 }
 
 void Poller::onPollTimeout()
@@ -175,16 +176,9 @@ void Poller::stop()
 
 void Poller::writeRegister(const QModbusDataUnit &command)
 {
-    if (auto *reply = d->modbusClient->sendReadRequest(command, 1)) {
-        if (!reply->isFinished()) {
-            connect(reply, &QModbusReply::finished, this, &Poller::onModbusReplyFinished);
-        } else {
-            qDebug("[Poller::readRegister] DELETING REPLY");
-            delete reply; // broadcast replies return immediately
-        }
-    } else {
-        qDebug() << "[Poller::readRegister] READ ERROR : " << d->modbusClient->errorString();
-    }
+    qDebug("[Poller::writeRegister]");
+    qDebug() << "[Poller::writeRegister] values to send: (" << command.valueCount() << " -> " << command.values();
+
 
     if (QModbusReply *reply = d->modbusClient->sendWriteRequest(command, 1)) {
         if (!reply->isFinished()) {
