@@ -5,6 +5,7 @@
 
 #include <QtSerialBus/QModbusClient>
 #include <QtSerialBus/QModbusRtuSerialMaster>
+#include <QtSerialBus/QModbusTcpClient>
 
 
 namespace ModbusPoller {
@@ -201,6 +202,40 @@ void Poller::setState(Poller::State state)
     }
 }
 
+void Poller::setupModbusClientConnections()
+{
+    connect(d->modbusClient, &QModbusClient::errorOccurred, [this] (QModbusDevice::Error) {
+        qDebug() << "[Poller::setupSerialConnection] MODBUS ERROR: " << d->modbusClient->errorString();
+    });
+
+    if (!d->modbusClient) {
+        qDebug() << "[Poller::setupSerialConnection] Could not create Modbus client.";
+    } else {
+        connect(d->modbusClient, &QModbusClient::stateChanged, [this] (QModbusDevice::State state) {
+            qDebug("CONNECTION STATE CHANGED! - 1 ");
+            qDebug() << "TO: " << state;
+
+            switch (state) {
+                case QModbusDevice::UnconnectedState:
+                    setConnectionState(UNCONNECTED);
+                    break;
+                case QModbusDevice::ConnectingState:
+                    setConnectionState(CONNECTING);
+                    break;
+                case QModbusDevice::ConnectedState:
+                    setConnectionState(CONNECTED);
+                    break;
+                case QModbusDevice::ClosingState:
+                    setConnectionState(CLOSING);
+                    break;
+                default:
+                    setConnectionState(UNCONNECTED);
+                    break;
+            }
+        });
+    }
+}
+
 void Poller::setupSerialConnection(const QString &serialPortPath, int parity, int baud, int dataBits, int stopBits, int responseTimeout, int numberOfRetries)
 {
     Q_UNUSED(responseTimeout);
@@ -234,36 +269,33 @@ void Poller::setupSerialConnection(const QString &serialPortPath, int parity, in
 //    d->modbusClient->setTimeout(responseTimeout);
 //    d->modbusClient->setNumberOfRetries(numberOfRetries);
 
-    connect(d->modbusClient, &QModbusClient::errorOccurred, [this] (QModbusDevice::Error) {
-        qDebug() << "[Poller::setupSerialConnection] MODBUS ERROR: " << d->modbusClient->errorString();
-    });
+    setupModbusClientConnections();
+}
 
-    if (!d->modbusClient) {
-        qDebug() << "[Poller::setupSerialConnection] Could not create Modbus client.";
-    } else {
-        connect(d->modbusClient, &QModbusClient::stateChanged, [this] (QModbusDevice::State state) {
-            qDebug("CONNECTION STATE CHANGED! - 1 ");
-            qDebug() << "TO: " << state;
+void Poller::setupTcpConnection(const QString &hostAddress, int port, int responseTimeout, int numberOfRetries)
+{
+    Q_UNUSED(responseTimeout);
+    Q_UNUSED(numberOfRetries);
 
-            switch (state) {
-                case QModbusDevice::UnconnectedState:
-                    setConnectionState(UNCONNECTED);
-                    break;
-                case QModbusDevice::ConnectingState:
-                    setConnectionState(CONNECTING);
-                    break;
-                case QModbusDevice::ConnectedState:
-                    setConnectionState(CONNECTED);
-                    break;
-                case QModbusDevice::ClosingState:
-                    setConnectionState(CLOSING);
-                    break;
-                default:
-                    setConnectionState(UNCONNECTED);
-                    break;
-            }
-        });
+    if (d->modbusClient != nullptr) {
+        qDebug("Another client is already active! Disconnecting and deleting current");
+
+        // this won't don anything as we're never connected when it's called
+        d->modbusClient->disconnectDevice();
+
+        delete d->modbusClient;
+        d->modbusClient = nullptr;
     }
+
+    d->modbusClient = new QModbusTcpClient();
+    d->modbusClient->setConnectionParameter(QModbusDevice::NetworkAddressParameter, hostAddress);
+    d->modbusClient->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
+
+    // TODO activate later
+//    d->modbusClient->setTimeout(responseTimeout);
+//    d->modbusClient->setNumberOfRetries(numberOfRetries);
+
+    setupModbusClientConnections();
 }
 
 void Poller::start()

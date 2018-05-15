@@ -97,7 +97,7 @@ public:
 //    void setModbusClient(QModbusClient *modbusClient);
 
     void setupSerialConnection(const QString &serialPortPath, int parity, int baud, int dataBits, int stopBits, int responseTimeout = 200, int numberOfRetries = 3);
-//    void setupTcpConnection();
+    void setupTcpConnection(const QString &hostAddress, int port, int responseTimeout = 200, int numberOfRetries = 3);
 
     /** start polling */
     void start();
@@ -130,6 +130,7 @@ private:
     void readRegister(int registerAddress, quint16 length);
     void readRegister(const QModbusDataUnit &command);
 
+    void setupModbusClientConnections();
     void setConnectionState(Poller::ConnectionState connectionState);
     void setState(Poller::State state);
 
