@@ -7,6 +7,7 @@
 
 #include <QtSerialBus/QModbusDataUnit>
 
+
 class QModbusClient;
 
 
@@ -27,8 +28,27 @@ class MODBUSPOLLERSHARED_EXPORT Poller : public QObject
 
 public:
     /**
+     * @brief The ConnectionState enum
+     * This enum reflects the Qts connection state enum from QModbusDevice::State
+     */
+    enum ConnectionState {
+        /** the modbus device is not connected */
+        UNCONNECTED = 0,
+
+        /** the modbus device is trying to connect */
+        CONNECTING,
+
+        /** the modbus device is connected */
+        CONNECTED,
+
+        /** the modbus device is closing its connection */
+        CLOSING
+    };
+    Q_ENUM(ConnectionState)
+
+
+    /**
      * @brief The State enum
-     *
      * enumerates the different states the poller can assume
      */
     enum State {
@@ -45,6 +65,12 @@ public:
 
     explicit Poller(const QModbusDataUnit &defaultCommand = QModbusDataUnit(), quint16 pollingInterval = 1000, QObject *parent = nullptr);
     virtual ~Poller();
+
+    /** establishes a modbus connection */
+    void connectDevice();
+
+    /** disconnects the current modbus connection */
+    void disconnectDevice();
 
     /**
      * @brief enqueueReadCommand
@@ -67,7 +93,11 @@ public:
     static QModbusDataUnit prepareReadCommand(QModbusDataUnit::RegisterType type, int regAddr, quint16 readLength);
 
     void setDefaultPollCommand(const QModbusDataUnit &defaultPollCommand);
-    void setModbusClient(QModbusClient *modbusClient);
+    // DEPRECATED
+//    void setModbusClient(QModbusClient *modbusClient);
+
+    void setupSerialConnection(const QString &serialPortPath, int parity, int baud, int dataBits, int stopBits, int responseTimeout = 200, int numberOfRetries = 3);
+//    void setupTcpConnection();
 
     /** start polling */
     void start();
@@ -76,7 +106,8 @@ public:
     void stop();
 
 Q_SIGNALS:
-    void stateChanged(Poller::State state);
+    void connectionStateChanged(Poller::ConnectionState connectionState);
+    void stateChanged(Poller::State state); // todo - rename to "pollerState"
 
 protected:
     /**
@@ -99,6 +130,7 @@ private:
     void readRegister(int registerAddress, quint16 length);
     void readRegister(const QModbusDataUnit &command);
 
+    void setConnectionState(Poller::ConnectionState connectionState);
     void setState(Poller::State state);
 
     void writeRegister(const QModbusDataUnit &command);
