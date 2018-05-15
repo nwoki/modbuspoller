@@ -1,6 +1,8 @@
 #ifndef MODBUSPOLLER_POLLER_P_H
 #define MODBUSPOLLER_POLLER_P_H
 
+#include <modbus.h>
+
 #include "poller.h"
 #include "poller_global.h"
 
@@ -18,11 +20,13 @@ namespace ModbusPoller {
 class MODBUSPOLLERSHARED_EXPORT PollerPrivate
 {
 public:
-    PollerPrivate()
+    PollerPrivate(Poller::Backend backend)
         : pollTimer(new QTimer)
         , modbusClient(nullptr)
+        , libModbusClient(nullptr)
         , connectionState(Poller::UNCONNECTED)
         , state(Poller::IDLE)
+        , backend(backend)
     {}
 
     ~PollerPrivate()
@@ -35,13 +39,21 @@ public:
     }
 
     QTimer *pollTimer;
+
+    // the modbus client objs
     QModbusClient *modbusClient;
+    modbus_t *libModbusClient;
+
+    // read / write queues
     QQueue<QModbusDataUnit> readQueue;
     QQueue<QModbusDataUnit> writeQueue;
 
     QModbusDataUnit defaultPollCommand;
+
+    // poller gen data
     Poller::ConnectionState connectionState;
     Poller::State state;
+    Poller::Backend backend;
 };
 
 }   // ModbusPoller

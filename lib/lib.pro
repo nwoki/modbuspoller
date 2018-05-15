@@ -17,12 +17,20 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    poller.cpp
+    poller.cpp \
+    ../3rdparty/libmodbus-3.1.4/src/modbus.c \
+    ../3rdparty/libmodbus-3.1.4/src/modbus-data.c \
+    ../3rdparty/libmodbus-3.1.4/src/modbus-rtu.c
 
 HEADERS += \
     poller.h \
     poller_global.h \
-    poller_p.h
+    poller_p.h \
+    ../3rdparty/libmodbus-3.1.4/src/modbus.h
+
+INCLUDEPATH += \
+    ../3rdparty/libmodbus-3.1.4 \
+    ../3rdparty/libmodbus-3.1.4/src
 
 unix {
     isEmpty(PREFIX): PREFIX = /usr

@@ -7,12 +7,14 @@
 #include <QtSerialBus/QModbusRtuSerialMaster>
 #include <QtSerialBus/QModbusTcpClient>
 
+#include <modbus-rtu.h>
+
 
 namespace ModbusPoller {
 
-Poller::Poller(const QModbusDataUnit &defaultCommand, quint16 pollingInterval, QObject *parent)
+Poller::Poller(Backend backend, const QModbusDataUnit &defaultCommand, quint16 pollingInterval, QObject *parent)
     : QObject(parent)
-    , d(new PollerPrivate)
+    , d(new PollerPrivate(backend))
 {
     d->defaultPollCommand = defaultCommand;
     d->pollTimer->setInterval(pollingInterval);
@@ -32,16 +34,27 @@ Poller::~Poller()
 
 void Poller::connectDevice()
 {
-    if (!d->modbusClient) {
-        qDebug("[Poller::connectDevice] modbus client not configured!");
-        return;
-    }
+    if (d->backend == QtModbusBackend) {
+        if (!d->modbusClient) {
+            qDebug("[Poller::connectDevice] modbus client not configured!");
+            return;
+        }
 
-    if (!d->modbusClient->connectDevice()) {
-        qDebug() << "[Poller::connectDevice] CONNECTION ERROR: " << d->modbusClient->errorString();
-    }
+        if (!d->modbusClient->connectDevice()) {
+            qDebug() << "[Poller::connectDevice] CONNECTION ERROR: " << d->modbusClient->errorString();
+        }
 
-    qDebug("ALl is well. Start polling");
+        qDebug("ALl is well. Start polling");
+    } else {
+        if(modbus_connect(d->libModbusClient) == -1) {
+            qDebug() << "[Poller::connectDevice] Could not connect serial port!";
+//            emit connectionError(tr("[Poller::connectDevice] Could not connect serial port!"));
+            disconnectDevice();     // no need to keep object in memory on fail
+        } else {
+            qDebug("YAY!");
+            setConnectionState(CONNECTED);
+        }
+    }
 }
 
 void Poller::disconnectDevice()
@@ -51,16 +64,22 @@ void Poller::disconnectDevice()
         stop();
     }
 
-    if (d->modbusClient) {
-        d->modbusClient->disconnectDevice();
+    if (d->backend == QtModbusBackend) {
+        if (d->modbusClient) {
+            d->modbusClient->disconnectDevice();
+        }
+
+        // reset the pointer once destroyed
+        connect(d->modbusClient, &QModbusClient::destroyed, [this] () {
+            d->modbusClient = nullptr;
+        });
+
+        delete d->modbusClient;
+    } else {
+        modbus_close(d->libModbusClient);
+        modbus_free(d->libModbusClient);
+        d->libModbusClient = nullptr;
     }
-
-    // reset the pointer once destroyed
-    connect(d->modbusClient, &QModbusClient::destroyed, [this] () {
-        d->modbusClient = nullptr;
-    });
-
-    delete d->modbusClient;
 }
 
 void Poller::enqueueReadCommand(const QModbusDataUnit &readCommand)
@@ -241,35 +260,50 @@ void Poller::setupSerialConnection(const QString &serialPortPath, int parity, in
     Q_UNUSED(responseTimeout);
     Q_UNUSED(numberOfRetries);
 
-    if (d->modbusClient != nullptr) {
-        qDebug("Another client is already active! Disconnecting and deleting current");
+    if (d->backend == QtModbusBackend) {
+        if (d->modbusClient != nullptr) {
+            qDebug("Another client is already active! Disconnecting and deleting current");
 
-        /*
-         * This action is available ONLY if the device is not connected to the board. If the device is not connected the "modbusClient" value
-         * will ALWAYS be 'nullptr' UNLESS we're doing a configuration OVER a previous configuration without connecting to the board. In this
-         * case (the only case in which d->modbusClient is != nullptr) we can just directly delete the object without passing through the checks in the
-         * Poller::disconnectDevice function
-         */
+            /*
+             * This action is available ONLY if the device is not connected to the board. If the device is not connected the "modbusClient" value
+             * will ALWAYS be 'nullptr' UNLESS we're doing a configuration OVER a previous configuration without connecting to the board. In this
+             * case (the only case in which d->modbusClient is != nullptr) we can just directly delete the object without passing through the checks in the
+             * Poller::disconnectDevice function
+             */
 
-        // this won't don anything as we're never connected when it's called
-        d->modbusClient->disconnectDevice();
+            // this won't don anything as we're never connected when it's called
+            d->modbusClient->disconnectDevice();
 
-        delete d->modbusClient;
-        d->modbusClient = nullptr;
+            delete d->modbusClient;
+            d->modbusClient = nullptr;
+        }
+
+        d->modbusClient = new QModbusRtuSerialMaster(this);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialPortNameParameter, serialPortPath);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialParityParameter, parity);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialBaudRateParameter, baud);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialDataBitsParameter, dataBits);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialStopBitsParameter, stopBits);
+
+        // TODO activate later
+    //    d->modbusClient->setTimeout(responseTimeout);
+    //    d->modbusClient->setNumberOfRetries(numberOfRetries);
+
+        setupModbusClientConnections();
+    } else {
+        if (d->libModbusClient != nullptr) {
+            // close/free/reset modbus pointer
+            disconnectDevice();
+        }
+
+        // setup libmodbus serial settings
+        d->libModbusClient = modbus_new_rtu(serialPortPath.toLatin1().constData()
+                                            , baud
+                                            // http://libmodbus.org/docs/v3.1.4/modbus_new_rtu.html
+                                            , parity == 0 ? 'N' : parity == 1 ? 'E' : 'O'
+                                            , dataBits
+                                            , stopBits);
     }
-
-    d->modbusClient = new QModbusRtuSerialMaster(this);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialPortNameParameter, serialPortPath);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialParityParameter, parity);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialBaudRateParameter, baud);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialDataBitsParameter, dataBits);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialStopBitsParameter, stopBits);
-
-    // TODO activate later
-//    d->modbusClient->setTimeout(responseTimeout);
-//    d->modbusClient->setNumberOfRetries(numberOfRetries);
-
-    setupModbusClientConnections();
 }
 
 void Poller::setupTcpConnection(const QString &hostAddress, int port, int responseTimeout, int numberOfRetries)
