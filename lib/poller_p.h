@@ -21,6 +21,7 @@ public:
     PollerPrivate()
         : pollTimer(new QTimer)
         , modbusClient(nullptr)
+        , connectionState(Poller::UNCONNECTED)
         , state(Poller::IDLE)
     {}
 
@@ -39,6 +40,7 @@ public:
     QQueue<QModbusDataUnit> writeQueue;
 
     QModbusDataUnit defaultPollCommand;
+    Poller::ConnectionState connectionState;
     Poller::State state;
 };
 
