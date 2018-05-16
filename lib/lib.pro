@@ -18,9 +18,6 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     poller.cpp \
-    ../3rdparty/libmodbus-3.1.4/src/modbus.c \
-    ../3rdparty/libmodbus-3.1.4/src/modbus-data.c \
-    ../3rdparty/libmodbus-3.1.4/src/modbus-rtu.c \
     actionthread.cpp \
     readactionthread.cpp
 
@@ -37,7 +34,22 @@ INCLUDEPATH += \
     ../3rdparty/libmodbus-3.1.4/src
 
 unix {
+SOURCES += \
+    ../3rdparty/libmodbus-3.1.4/src/modbus.c \
+    ../3rdparty/libmodbus-3.1.4/src/modbus-data.c \
+    ../3rdparty/libmodbus-3.1.4/src/modbus-rtu.c \
+    ../3rdparty/libmodbus-3.1.4/src/modbus-tcp.c \
+
     isEmpty(PREFIX): PREFIX = /usr
     target.path = $${PREFIX}/lib
     INSTALLS += target
+}
+
+# pre-compiled version of libmodbus 3.1.4. Was compiled with mingw
+#win32: LIBS += -L$$PWD/../3rdparty/win/ -llibmodbus.dll
+
+win32 {
+    LIBS += -L$$PWD/../3rdparty/win/ -llibmodbus.dll
+    INCLUDEPATH += $$PWD/../3rdparty/win
+    DEPENDPATH += $$PWD/../3rdparty/win
 }
