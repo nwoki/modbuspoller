@@ -28,7 +28,7 @@ void ReadActionThread::run()
         return;
     }
 
-    while (actionQueue().data()->count() > 0) {
+    if (actionQueue().data()->count() > 0) {
         // extract and prepare
         QModbusDataUnit du = actionQueue().data()->dequeue();
         int valuesCount = du.values().count();
