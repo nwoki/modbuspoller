@@ -108,6 +108,8 @@ void Poller::disconnectDevice()
         modbus_close(d->libModbusClient);
         modbus_free(d->libModbusClient);
         d->libModbusClient = nullptr;
+
+        setConnectionState(UNCONNECTED);
     }
 }
 
