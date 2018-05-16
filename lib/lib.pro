@@ -20,13 +20,17 @@ SOURCES += \
     poller.cpp \
     ../3rdparty/libmodbus-3.1.4/src/modbus.c \
     ../3rdparty/libmodbus-3.1.4/src/modbus-data.c \
-    ../3rdparty/libmodbus-3.1.4/src/modbus-rtu.c
+    ../3rdparty/libmodbus-3.1.4/src/modbus-rtu.c \
+    actionthread.cpp \
+    readactionthread.cpp
 
 HEADERS += \
     poller.h \
     poller_global.h \
     poller_p.h \
-    ../3rdparty/libmodbus-3.1.4/src/modbus.h
+    ../3rdparty/libmodbus-3.1.4/src/modbus.h \
+    actionthread.h \
+    readactionthread.h
 
 INCLUDEPATH += \
     ../3rdparty/libmodbus-3.1.4 \

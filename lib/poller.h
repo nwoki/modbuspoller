@@ -127,6 +127,8 @@ protected:
     virtual void dataReady(const QModbusDataUnit &readData) = 0;
 
 private Q_SLOTS:
+    void onLibModbusReplyFinished(const QModbusDataUnit &modbusReply);
+//    void onLibmodbusWriteFinished();  // TODO
     void onModbusReplyFinished();
     void onModbusWriteReplyFinished();
     void onPollTimeout();
