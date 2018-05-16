@@ -19,7 +19,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     poller.cpp \
     actionthread.cpp \
-    readactionthread.cpp
+    readactionthread.cpp \
+    writeactionthread.cpp
 
 HEADERS += \
     poller.h \
@@ -27,7 +28,8 @@ HEADERS += \
     poller_p.h \
     ../3rdparty/libmodbus-3.1.4/src/modbus.h \
     actionthread.h \
-    readactionthread.h
+    readactionthread.h \
+    writeactionthread.h
 
 INCLUDEPATH += \
     ../3rdparty/libmodbus-3.1.4 \

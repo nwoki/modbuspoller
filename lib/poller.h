@@ -128,7 +128,7 @@ protected:
 
 private Q_SLOTS:
     void onLibModbusReplyFinished(const QModbusDataUnit &modbusReply);
-//    void onLibmodbusWriteFinished();  // TODO
+    void onLibmodbusWriteFinished();
     void onModbusReplyFinished();
     void onModbusWriteReplyFinished();
     void onPollTimeout();
@@ -146,7 +146,7 @@ private:
     void setConnectionState(Poller::ConnectionState connectionState);
     void setState(Poller::State state);
 
-    void writeRegister(const QModbusDataUnit &command);
+    void writeRegister();
 
     PollerPrivate * const d;
 };

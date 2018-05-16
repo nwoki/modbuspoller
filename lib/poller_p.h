@@ -18,6 +18,7 @@ class QModbusClient;
 namespace ModbusPoller {
 
 class ReadActionThread; // yeah, rename this class to something like "libmodbusreadthread". Long but I know what it does immediatly
+class WriteActionThread;
 
 class MODBUSPOLLERSHARED_EXPORT PollerPrivate
 {
@@ -27,10 +28,12 @@ public:
         , modbusClient(nullptr)
         , libModbusClient(nullptr)
         , readQueue(new QQueue<QModbusDataUnit>())
+        , writeQueue(new QQueue<QModbusDataUnit>())
         , connectionState(Poller::UNCONNECTED)
         , state(Poller::IDLE)
         , backend(backend)
         , readActionThread(nullptr)
+        , writeActionThread(nullptr)
     {}
 
     ~PollerPrivate()
@@ -50,7 +53,7 @@ public:
 
     // read / write queues
     QSharedPointer<QQueue<QModbusDataUnit>> readQueue;
-    QQueue<QModbusDataUnit> writeQueue;
+    QSharedPointer<QQueue<QModbusDataUnit>> writeQueue;
 
     QModbusDataUnit defaultPollCommand;
 
@@ -62,6 +65,7 @@ public:
     // libmodbus specific workers. As libmodbus is only synchronous, we need to make
     // the read and write commands work in a seperate thread
     ReadActionThread *readActionThread;
+    WriteActionThread *writeActionThread;
 };
 
 }   // ModbusPoller

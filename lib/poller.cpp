@@ -1,6 +1,7 @@
 #include "poller.h"
 #include "poller_p.h"
 #include "readactionthread.h"
+#include "writeactionthread.h"
 
 #include <QtCore/QDebug>
 
@@ -34,7 +35,13 @@ Poller::Poller(Backend backend, const QModbusDataUnit &defaultCommand, quint16 p
 
     if (d->backend == LibModbusBackend) {
         d->readActionThread = new ReadActionThread(d->readQueue, this);
+        d->writeActionThread = new WriteActionThread(d->writeQueue, this);
+
         connect(d->readActionThread, &ReadActionThread::modbusResponseReceived, this, &Poller::onLibModbusReplyFinished);
+
+        // it's sufficient for us to just check the thread runtime for determining when the write procedure finishes as the write
+        // to modbus doesn't have to return any data
+        connect(d->writeActionThread, &WriteActionThread::finished, this, &Poller::onLibmodbusWriteFinished);
     }
 }
 
@@ -72,7 +79,7 @@ void Poller::connectDevice()
 
             // update our action reader/writes
             d->readActionThread->setModbusConnection(d->libModbusClient);
-            // TODO writeaction
+            d->writeActionThread->setModbusConnection(d->libModbusClient);
 
             setConnectionState(CONNECTED);
         }
@@ -111,7 +118,7 @@ void Poller::enqueueReadCommand(const QModbusDataUnit &readCommand)
 
 void Poller::enqueueWriteCommand(const QModbusDataUnit &writeCommand)
 {
-    d->writeQueue.enqueue(writeCommand);
+    d->writeQueue.data()->enqueue(writeCommand);
 }
 
 void Poller::onLibModbusReplyFinished(const QModbusDataUnit &modbusReply)
@@ -119,6 +126,12 @@ void Poller::onLibModbusReplyFinished(const QModbusDataUnit &modbusReply)
     qDebug("[Poller::onLibModbusReplyFinished]");
     Q_EMIT dataReady(modbusReply);
 
+    d->pollTimer->start();
+}
+
+void Poller::onLibmodbusWriteFinished()
+{
+    qDebug("[Poller::onLibmodbusWriteFinished]");
     d->pollTimer->start();
 }
 
@@ -175,9 +188,9 @@ void Poller::onPollTimeout()
     qDebug("[Poller::onPollTimeout]");
 
     // we give priority to the write queue
-    if (!d->writeQueue.isEmpty()) {
+    if (!d->writeQueue.data()->isEmpty()) {
         setState(WRITING);
-        writeRegister(d->writeQueue.dequeue());
+        writeRegister();//d->writeQueue.data()->dequeue());
     } else if (!d->readQueue.data()->isEmpty()) {
         setState(POLLING);
         readRegister(d->readQueue.data()->dequeue());
@@ -389,19 +402,24 @@ void Poller::stop()
     }
 }
 
-void Poller::writeRegister(const QModbusDataUnit &command)
+void Poller::writeRegister()
 {
     qDebug("[Poller::writeRegister]");
-    qDebug() << "[Poller::writeRegister] values to send: (" << command.valueCount() << " -> " << command.values();
 
+    if (d->backend == QtModbusBackend) {
+        QModbusDataUnit command = d->writeQueue.data()->dequeue();
 
-    if (QModbusReply *reply = d->modbusClient->sendWriteRequest(command, 1)) {
-        if (!reply->isFinished()) {
-            connect(reply, &QModbusReply::finished, this, &Poller::onModbusWriteReplyFinished);
-        } else {
-            qDebug("[Poller::writeRegister] DELETING REPLY");
-            delete reply; // broadcast replies return immediately
+        qDebug() << "[Poller::writeRegister] values to send: (" << command.valueCount() << " -> " << command.values();
+        if (QModbusReply *reply = d->modbusClient->sendWriteRequest(command, 1)) {
+            if (!reply->isFinished()) {
+                connect(reply, &QModbusReply::finished, this, &Poller::onModbusWriteReplyFinished);
+            } else {
+                qDebug("[Poller::writeRegister] DELETING REPLY");
+                delete reply; // broadcast replies return immediately
+            }
         }
+    } else {
+        d->writeActionThread->start();
     }
 }
 
