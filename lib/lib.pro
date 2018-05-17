@@ -47,10 +47,8 @@ SOURCES += \
     INSTALLS += target
 }
 
-# pre-compiled version of libmodbus 3.1.4. Was compiled with mingw
-#win32: LIBS += -L$$PWD/../3rdparty/win/ -llibmodbus.dll
-
 win32 {
+    # pre-compiled version of libmodbus 3.1.4. Was compiled with mingw
     LIBS += -L$$PWD/../3rdparty/win/ -llibmodbus.dll
     INCLUDEPATH += $$PWD/../3rdparty/win
     DEPENDPATH += $$PWD/../3rdparty/win
