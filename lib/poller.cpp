@@ -52,12 +52,13 @@ Poller::~Poller()
 
 void Poller::connectDevice()
 {
-    if (!d->modbusClient) {
-        qDebug("[Poller::connectDevice] modbus client not configured!");
-        return;
-    }
-
     if (d->backend == QtModbusBackend) {
+        if (!d->modbusClient) {
+            qDebug("[Poller::connectDevice] modbus client not configured!");
+            Q_EMIT connectionError("modbus client not configured");
+            return;
+        }
+
         if (!d->modbusClient->connectDevice()) {
             qDebug() << "[Poller::connectDevice] CONNECTION ERROR: " << d->modbusClient->errorString();
             Q_EMIT connectionError(QString("[Poller::connectDevice] Error connecting to device: %1").arg(d->modbusClient->errorString()));
@@ -65,6 +66,12 @@ void Poller::connectDevice()
 
         qDebug("All is well. Start polling");
     } else {
+        if (!d->libModbusClient) {
+            qDebug("[Poller::connectDevice] modbus client not configured!");
+            Q_EMIT connectionError("modbus client not configured");
+            return;
+        }
+
         if(modbus_connect(d->libModbusClient) == -1) {
             qDebug() << "[Poller::connectDevice] Could not connect serial port!";
             Q_EMIT connectionError(QString("[Poller::connectDevice] Error connecting to device: %1").arg(modbus_strerror(errno)));
