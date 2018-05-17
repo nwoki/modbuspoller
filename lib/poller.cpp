@@ -365,25 +365,33 @@ void Poller::setupTcpConnection(const QString &hostAddress, int port, int respon
     Q_UNUSED(responseTimeout);
     Q_UNUSED(numberOfRetries);
 
-    if (d->modbusClient != nullptr) {
-        qDebug("Another client is already active! Disconnecting and deleting current");
+    if (d->backend == QtModbusBackend) {
+        if (d->modbusClient != nullptr) {
+            qDebug("Another client is already active! Disconnecting and deleting current");
 
-        // this won't don anything as we're never connected when it's called
-        d->modbusClient->disconnectDevice();
+            // this won't don anything as we're never connected when it's called
+            d->modbusClient->disconnectDevice();
 
-        delete d->modbusClient;
-        d->modbusClient = nullptr;
+            delete d->modbusClient;
+            d->modbusClient = nullptr;
+        }
+
+        d->modbusClient = new QModbusTcpClient();
+        d->modbusClient->setConnectionParameter(QModbusDevice::NetworkAddressParameter, hostAddress);
+        d->modbusClient->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
+
+        // TODO activate later
+    //    d->modbusClient->setTimeout(responseTimeout);
+    //    d->modbusClient->setNumberOfRetries(numberOfRetries);
+        setupModbusClientConnections();
+    } else {
+        if (d->libModbusClient != nullptr) {
+            disconnectDevice();
+        }
+
+        // setup libmodbus tcp connection
+        d->libModbusClient = modbus_new_tcp(hostAddress.toLatin1().constData(), port);
     }
-
-    d->modbusClient = new QModbusTcpClient();
-    d->modbusClient->setConnectionParameter(QModbusDevice::NetworkAddressParameter, hostAddress);
-    d->modbusClient->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
-
-    // TODO activate later
-//    d->modbusClient->setTimeout(responseTimeout);
-//    d->modbusClient->setNumberOfRetries(numberOfRetries);
-
-    setupModbusClientConnections();
 }
 
 void Poller::start()
