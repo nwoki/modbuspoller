@@ -7,6 +7,12 @@
 
 namespace ModbusPoller {
 
+/**
+ * @brief The ReadActionThread class
+ * @author Francesco Nwokeka <francesco.nwokeka@gmail.com>
+ *
+ * The Read thread to use for libmodbus backend.
+ */
 class ReadActionThread : public ActionThread
 {
     Q_OBJECT

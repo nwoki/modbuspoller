@@ -18,7 +18,7 @@ class PollerPrivate;
 
 /**
  * @brief The Poller class
- * @author Francesco Nwokeka <francesco.nwokeka@rawfish.it>
+ * @author Francesco Nwokeka <francesco.nwokeka@gmail.com>
  *
  * Poller class used to poll info from the board
  */

@@ -6,6 +6,12 @@
 
 namespace ModbusPoller {
 
+/**
+ * @brief The WriteActionThread class
+ * @author Francesco Nwokeka <francesco.nwokeka@gmail.com>
+ *
+ * The Write thread to use for libmodbus backend.
+ */
 class WriteActionThread : public ActionThread
 {
     Q_OBJECT
