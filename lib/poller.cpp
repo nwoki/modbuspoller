@@ -1,5 +1,7 @@
 #include "poller.h"
 #include "poller_p.h"
+#include "readactionthread.h"
+#include "writeactionthread.h"
 
 #include <QtCore/QDebug>
 
@@ -7,13 +9,20 @@
 #include <QtSerialBus/QModbusRtuSerialMaster>
 #include <QtSerialBus/QModbusTcpClient>
 
+#include <modbus-rtu.h>
+
+// NOTE (A): needed for the connection from the libmodbus action threads. No needed with other qt classes. Investigate why
+Q_DECLARE_METATYPE(QModbusDataUnit)
 
 namespace ModbusPoller {
 
-Poller::Poller(const QModbusDataUnit &defaultCommand, quint16 pollingInterval, QObject *parent)
+Poller::Poller(Backend backend, const QModbusDataUnit &defaultCommand, quint16 pollingInterval, QObject *parent)
     : QObject(parent)
-    , d(new PollerPrivate)
+    , d(new PollerPrivate(backend))
 {
+    // NOTE (A): same here.
+    qRegisterMetaType<QModbusDataUnit>();
+
     d->defaultPollCommand = defaultCommand;
     d->pollTimer->setInterval(pollingInterval);
     d->pollTimer->setSingleShot(true);
@@ -23,6 +32,17 @@ Poller::Poller(const QModbusDataUnit &defaultCommand, quint16 pollingInterval, Q
     // notify starting state
     Q_EMIT connectionStateChanged(d->connectionState);
     Q_EMIT stateChanged(d->state);
+
+    if (d->backend == LibModbusBackend) {
+        d->readActionThread = new ReadActionThread(d->readQueue, this);
+        d->writeActionThread = new WriteActionThread(d->writeQueue, this);
+
+        connect(d->readActionThread, &ReadActionThread::modbusResponseReceived, this, &Poller::onLibModbusReplyFinished);
+
+        // it's sufficient for us to just check the thread runtime for determining when the write procedure finishes as the write
+        // to modbus doesn't have to return any data
+        connect(d->writeActionThread, &WriteActionThread::finished, this, &Poller::onLibmodbusWriteFinished);
+    }
 }
 
 Poller::~Poller()
@@ -32,16 +52,38 @@ Poller::~Poller()
 
 void Poller::connectDevice()
 {
-    if (!d->modbusClient) {
-        qDebug("[Poller::connectDevice] modbus client not configured!");
-        return;
-    }
+    if (d->backend == QtModbusBackend) {
+        if (!d->modbusClient) {
+            qDebug("[Poller::connectDevice] modbus client not configured!");
+            return;
+        }
 
-    if (!d->modbusClient->connectDevice()) {
-        qDebug() << "[Poller::connectDevice] CONNECTION ERROR: " << d->modbusClient->errorString();
-    }
+        if (!d->modbusClient->connectDevice()) {
+            qDebug() << "[Poller::connectDevice] CONNECTION ERROR: " << d->modbusClient->errorString();
+        }
 
-    qDebug("ALl is well. Start polling");
+        qDebug("ALl is well. Start polling");
+    } else {
+        if(modbus_connect(d->libModbusClient) == -1) {
+            qDebug() << "[Poller::connectDevice] Could not connect serial port!";
+//            emit connectionError(tr("[Poller::connectDevice] Could not connect serial port!"));
+            disconnectDevice();     // no need to keep object in memory on fail
+        } else {
+            qDebug("YAY!");
+
+            modbus_set_debug(d->libModbusClient, true);
+            qDebug() << " --------> " << d->libModbusClient;
+
+            /* Define a new and too short timeout! */
+            modbus_set_response_timeout(d->libModbusClient, 1, 0);
+
+            // update our action reader/writes
+            d->readActionThread->setModbusConnection(d->libModbusClient);
+            d->writeActionThread->setModbusConnection(d->libModbusClient);
+
+            setConnectionState(CONNECTED);
+        }
+    }
 }
 
 void Poller::disconnectDevice()
@@ -51,26 +93,48 @@ void Poller::disconnectDevice()
         stop();
     }
 
-    if (d->modbusClient) {
-        d->modbusClient->disconnectDevice();
+    if (d->backend == QtModbusBackend) {
+        if (d->modbusClient) {
+            d->modbusClient->disconnectDevice();
+        }
+
+        // reset the pointer once destroyed
+        connect(d->modbusClient, &QModbusClient::destroyed, [this] () {
+            d->modbusClient = nullptr;
+        });
+
+        delete d->modbusClient;
+    } else {
+        modbus_close(d->libModbusClient);
+        modbus_free(d->libModbusClient);
+        d->libModbusClient = nullptr;
+
+        setConnectionState(UNCONNECTED);
     }
-
-    // reset the pointer once destroyed
-    connect(d->modbusClient, &QModbusClient::destroyed, [this] () {
-        d->modbusClient = nullptr;
-    });
-
-    delete d->modbusClient;
 }
 
 void Poller::enqueueReadCommand(const QModbusDataUnit &readCommand)
 {
-    d->readQueue.enqueue(readCommand);
+    d->readQueue.data()->enqueue(readCommand);
 }
 
 void Poller::enqueueWriteCommand(const QModbusDataUnit &writeCommand)
 {
-    d->writeQueue.enqueue(writeCommand);
+    d->writeQueue.data()->enqueue(writeCommand);
+}
+
+void Poller::onLibModbusReplyFinished(const QModbusDataUnit &modbusReply)
+{
+    qDebug("[Poller::onLibModbusReplyFinished]");
+    Q_EMIT dataReady(modbusReply);
+
+    d->pollTimer->start();
+}
+
+void Poller::onLibmodbusWriteFinished()
+{
+    qDebug("[Poller::onLibmodbusWriteFinished]");
+    d->pollTimer->start();
 }
 
 void Poller::onModbusReplyFinished()
@@ -126,12 +190,12 @@ void Poller::onPollTimeout()
     qDebug("[Poller::onPollTimeout]");
 
     // we give priority to the write queue
-    if (!d->writeQueue.isEmpty()) {
+    if (!d->writeQueue.data()->isEmpty()) {
         setState(WRITING);
-        writeRegister(d->writeQueue.dequeue());
-    } else if (!d->readQueue.isEmpty()) {
+        writeRegister();//d->writeQueue.data()->dequeue());
+    } else if (!d->readQueue.data()->isEmpty()) {
         setState(POLLING);
-        readRegister(d->readQueue.dequeue());
+        readRegister(d->readQueue.data()->dequeue());
     } else {
         setState(POLLING);
         // run default commands
@@ -153,15 +217,24 @@ void Poller::readRegister(int registerAddress, quint16 length)
 
 void Poller::readRegister(const QModbusDataUnit &command)
 {
-    if (auto *reply = d->modbusClient->sendReadRequest(command, 1)) {
-        if (!reply->isFinished()) {
-            connect(reply, &QModbusReply::finished, this, &Poller::onModbusReplyFinished);
+    if (d->backend == QtModbusBackend) {
+        if (auto *reply = d->modbusClient->sendReadRequest(command, 1)) {
+            if (!reply->isFinished()) {
+                connect(reply, &QModbusReply::finished, this, &Poller::onModbusReplyFinished);
+            } else {
+                qDebug("[Poller::readRegister] DELETING REPLY");
+                delete reply; // broadcast replies return immediately
+            }
         } else {
-            qDebug("[Poller::readRegister] DELETING REPLY");
-            delete reply; // broadcast replies return immediately
+            qDebug() << "[Poller::readRegister] READ ERROR : " << d->modbusClient->errorString();
         }
     } else {
-        qDebug() << "[Poller::readRegister] READ ERROR : " << d->modbusClient->errorString();
+        qDebug() << "YEAH; READ COMMAND FOR LIBMODBUS!";
+        // as the libmodbus implementation we made depends on 2 queues for reading and writing, we need to add the default command to the
+        // read queue before starting the actual read otherwise we won't have anything to read from
+        enqueueReadCommand(command);
+
+        d->readActionThread->start();
     }
 }
 
@@ -241,35 +314,50 @@ void Poller::setupSerialConnection(const QString &serialPortPath, int parity, in
     Q_UNUSED(responseTimeout);
     Q_UNUSED(numberOfRetries);
 
-    if (d->modbusClient != nullptr) {
-        qDebug("Another client is already active! Disconnecting and deleting current");
+    if (d->backend == QtModbusBackend) {
+        if (d->modbusClient != nullptr) {
+            qDebug("Another client is already active! Disconnecting and deleting current");
 
-        /*
-         * This action is available ONLY if the device is not connected to the board. If the device is not connected the "modbusClient" value
-         * will ALWAYS be 'nullptr' UNLESS we're doing a configuration OVER a previous configuration without connecting to the board. In this
-         * case (the only case in which d->modbusClient is != nullptr) we can just directly delete the object without passing through the checks in the
-         * Poller::disconnectDevice function
-         */
+            /*
+             * This action is available ONLY if the device is not connected to the board. If the device is not connected the "modbusClient" value
+             * will ALWAYS be 'nullptr' UNLESS we're doing a configuration OVER a previous configuration without connecting to the board. In this
+             * case (the only case in which d->modbusClient is != nullptr) we can just directly delete the object without passing through the checks in the
+             * Poller::disconnectDevice function
+             */
 
-        // this won't don anything as we're never connected when it's called
-        d->modbusClient->disconnectDevice();
+            // this won't don anything as we're never connected when it's called
+            d->modbusClient->disconnectDevice();
 
-        delete d->modbusClient;
-        d->modbusClient = nullptr;
+            delete d->modbusClient;
+            d->modbusClient = nullptr;
+        }
+
+        d->modbusClient = new QModbusRtuSerialMaster(this);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialPortNameParameter, serialPortPath);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialParityParameter, parity);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialBaudRateParameter, baud);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialDataBitsParameter, dataBits);
+        d->modbusClient->setConnectionParameter(QModbusDevice::SerialStopBitsParameter, stopBits);
+
+        // TODO activate later
+    //    d->modbusClient->setTimeout(responseTimeout);
+    //    d->modbusClient->setNumberOfRetries(numberOfRetries);
+
+        setupModbusClientConnections();
+    } else {
+        if (d->libModbusClient != nullptr) {
+            // close/free/reset modbus pointer
+            disconnectDevice();
+        }
+
+        // setup libmodbus serial settings
+        d->libModbusClient = modbus_new_rtu(serialPortPath.toLatin1().constData()
+                                            , baud
+                                            // http://libmodbus.org/docs/v3.1.4/modbus_new_rtu.html
+                                            , parity == 0 ? 'N' : parity == 1 ? 'E' : 'O'
+                                            , dataBits
+                                            , stopBits);
     }
-
-    d->modbusClient = new QModbusRtuSerialMaster(this);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialPortNameParameter, serialPortPath);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialParityParameter, parity);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialBaudRateParameter, baud);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialDataBitsParameter, dataBits);
-    d->modbusClient->setConnectionParameter(QModbusDevice::SerialStopBitsParameter, stopBits);
-
-    // TODO activate later
-//    d->modbusClient->setTimeout(responseTimeout);
-//    d->modbusClient->setNumberOfRetries(numberOfRetries);
-
-    setupModbusClientConnections();
 }
 
 void Poller::setupTcpConnection(const QString &hostAddress, int port, int responseTimeout, int numberOfRetries)
@@ -316,19 +404,24 @@ void Poller::stop()
     }
 }
 
-void Poller::writeRegister(const QModbusDataUnit &command)
+void Poller::writeRegister()
 {
     qDebug("[Poller::writeRegister]");
-    qDebug() << "[Poller::writeRegister] values to send: (" << command.valueCount() << " -> " << command.values();
 
+    if (d->backend == QtModbusBackend) {
+        QModbusDataUnit command = d->writeQueue.data()->dequeue();
 
-    if (QModbusReply *reply = d->modbusClient->sendWriteRequest(command, 1)) {
-        if (!reply->isFinished()) {
-            connect(reply, &QModbusReply::finished, this, &Poller::onModbusWriteReplyFinished);
-        } else {
-            qDebug("[Poller::writeRegister] DELETING REPLY");
-            delete reply; // broadcast replies return immediately
+        qDebug() << "[Poller::writeRegister] values to send: (" << command.valueCount() << " -> " << command.values();
+        if (QModbusReply *reply = d->modbusClient->sendWriteRequest(command, 1)) {
+            if (!reply->isFinished()) {
+                connect(reply, &QModbusReply::finished, this, &Poller::onModbusWriteReplyFinished);
+            } else {
+                qDebug("[Poller::writeRegister] DELETING REPLY");
+                delete reply; // broadcast replies return immediately
+            }
         }
+    } else {
+        d->writeActionThread->start();
     }
 }
 

@@ -17,15 +17,41 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    poller.cpp
+    poller.cpp \
+    actionthread.cpp \
+    readactionthread.cpp \
+    writeactionthread.cpp
 
 HEADERS += \
     poller.h \
     poller_global.h \
-    poller_p.h
+    poller_p.h \
+    ../3rdparty/libmodbus-3.1.4/src/modbus.h \
+    actionthread.h \
+    readactionthread.h \
+    writeactionthread.h
+
+INCLUDEPATH += \
+    ../3rdparty/libmodbus-3.1.4 \
+    ../3rdparty/libmodbus-3.1.4/src
 
 unix {
+SOURCES += \
+    ../3rdparty/libmodbus-3.1.4/src/modbus.c \
+    ../3rdparty/libmodbus-3.1.4/src/modbus-data.c \
+    ../3rdparty/libmodbus-3.1.4/src/modbus-rtu.c \
+    ../3rdparty/libmodbus-3.1.4/src/modbus-tcp.c \
+
     isEmpty(PREFIX): PREFIX = /usr
     target.path = $${PREFIX}/lib
     INSTALLS += target
+}
+
+# pre-compiled version of libmodbus 3.1.4. Was compiled with mingw
+#win32: LIBS += -L$$PWD/../3rdparty/win/ -llibmodbus.dll
+
+win32 {
+    LIBS += -L$$PWD/../3rdparty/win/ -llibmodbus.dll
+    INCLUDEPATH += $$PWD/../3rdparty/win
+    DEPENDPATH += $$PWD/../3rdparty/win
 }
