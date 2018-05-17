@@ -52,37 +52,36 @@ Poller::~Poller()
 
 void Poller::connectDevice()
 {
-    if (d->backend == QtModbusBackend) {
-        if (!d->modbusClient) {
-            qDebug("[Poller::connectDevice] modbus client not configured!");
-            return;
-        }
+    if (!d->modbusClient) {
+        qDebug("[Poller::connectDevice] modbus client not configured!");
+        return;
+    }
 
+    if (d->backend == QtModbusBackend) {
         if (!d->modbusClient->connectDevice()) {
             qDebug() << "[Poller::connectDevice] CONNECTION ERROR: " << d->modbusClient->errorString();
+            Q_EMIT connectionError(QString("[Poller::connectDevice] Error connecting to device: %1").arg(d->modbusClient->errorString()));
         }
 
-        qDebug("ALl is well. Start polling");
+        qDebug("All is well. Start polling");
     } else {
         if(modbus_connect(d->libModbusClient) == -1) {
             qDebug() << "[Poller::connectDevice] Could not connect serial port!";
-//            emit connectionError(tr("[Poller::connectDevice] Could not connect serial port!"));
+            Q_EMIT connectionError(QString("[Poller::connectDevice] Error connecting to device: %1").arg(modbus_strerror(errno)));
             disconnectDevice();     // no need to keep object in memory on fail
-        } else {
-            qDebug("YAY!");
-
-            modbus_set_debug(d->libModbusClient, true);
-            qDebug() << " --------> " << d->libModbusClient;
-
-            /* Define a new and too short timeout! */
-            modbus_set_response_timeout(d->libModbusClient, 1, 0);
-
-            // update our action reader/writes
-            d->readActionThread->setModbusConnection(d->libModbusClient);
-            d->writeActionThread->setModbusConnection(d->libModbusClient);
-
-            setConnectionState(CONNECTED);
+            return;
         }
+
+        modbus_set_debug(d->libModbusClient, true);
+
+        /* Define a new and too short timeout! */
+        modbus_set_response_timeout(d->libModbusClient, 1, 0);
+
+        // update our action reader/writes
+        d->readActionThread->setModbusConnection(d->libModbusClient);
+        d->writeActionThread->setModbusConnection(d->libModbusClient);
+
+        setConnectionState(CONNECTED);
     }
 }
 

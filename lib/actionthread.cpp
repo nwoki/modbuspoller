@@ -30,9 +30,7 @@ modbus_t *ActionThread::modbusConnection() const
 
 void ActionThread::setModbusConnection(modbus_t *modbusConnection)
 {
-    qDebug() << "OLD: " << m_modbusConn;
     m_modbusConn = modbusConnection;
-    qDebug() << "NEW: " << m_modbusConn;
 }
 
 }   // ModbusPoller

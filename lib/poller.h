@@ -37,6 +37,7 @@ public:
     };
     Q_ENUM(Backend)
 
+
     /**
      * @brief The ConnectionState enum
      * This enum reflects the Qts connection state enum from QModbusDevice::State
@@ -72,6 +73,7 @@ public:
         WRITING
     };
     Q_ENUM(State)
+
 
     explicit Poller(Backend backend, const QModbusDataUnit &defaultCommand = QModbusDataUnit(), quint16 pollingInterval = 1000, QObject *parent = nullptr);
     virtual ~Poller();
@@ -116,6 +118,7 @@ public:
     void stop();
 
 Q_SIGNALS:
+    void connectionError(const QString &errorStr);
     void connectionStateChanged(Poller::ConnectionState connectionState);
     void stateChanged(Poller::State state); // todo - rename to "pollerState"
 

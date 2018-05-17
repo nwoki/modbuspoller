@@ -37,19 +37,17 @@ void ReadActionThread::run()
         // don't forget to tell modbus from which slave to read from
         modbus_set_slave(modbusConnection(), 1);
 
-        qDebug() << "START ADDR: " << du.startAddress();
-        qDebug() << "VALUES: " << du.values();
-        qDebug() << "VALUE COUNT: " << du.valueCount();
-
         switch (du.registerType()) {
             case QModbusDataUnit::HoldingRegisters:
                 if (modbus_read_registers(modbusConnection(), du.startAddress(), valuesCount, dest16) == -1) {
                     qDebug("[ReadActionThread::run] ERROR READING FROM MODBUS");
+                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)));
                 }
             break;
             case QModbusDataUnit::InputRegisters:
                 if (modbus_read_input_registers(modbusConnection(), du.startAddress(), valuesCount, dest16) == -1) {
                     qDebug("[ReadActionThread::run] ERROR READING FROM MODBUS");
+                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)));
                 }
             break;
 
@@ -59,7 +57,6 @@ void ReadActionThread::run()
         // create the response object
         QVector<quint16> readValues;
         for (int i = 0; i < valuesCount; ++i) {
-//            qDebug() << "FROM PLC : " << dest16[i];
             readValues.push_back(dest16[i]);
         }
 
