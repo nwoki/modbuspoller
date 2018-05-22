@@ -66,8 +66,11 @@ public:
         /** poller is doing nothing */
         IDLE = 0,
 
-        /** poller is reading from the board */
+        /** poller is reading default command(s)from the board */
         POLLING,
+
+        /** poller is reading data from the board */
+        READING,
 
         /** poller is writing info to the board */
         WRITING
@@ -113,6 +116,9 @@ public:
 
     /** start polling */
     void start();
+
+    /** current state of the poller */
+    State state() const;
 
     /** stop polling */
     void stop();

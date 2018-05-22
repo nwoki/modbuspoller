@@ -200,7 +200,7 @@ void Poller::onPollTimeout()
         setState(WRITING);
         writeRegister();//d->writeQueue.data()->dequeue());
     } else if (!d->readQueue.data()->isEmpty()) {
-        setState(POLLING);
+        setState(READING);
         readRegister(d->readQueue.data()->dequeue());
     } else {
         setState(POLLING);
@@ -399,6 +399,11 @@ void Poller::start()
 
         setState(POLLING);
     }
+}
+
+Poller::State Poller::state() const
+{
+    return d->state;
 }
 
 void Poller::stop()
