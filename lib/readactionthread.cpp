@@ -29,6 +29,11 @@ void ReadActionThread::run()
     }
 
     if (actionQueue().data()->count() > 0) {
+        // check we have a valid connection pointer otherwise clear out the queue and return
+        if (modbusConnection() == nullptr) {
+            return;
+        }
+
         // extract and prepare
         QModbusDataUnit du = actionQueue().data()->dequeue();
         int valuesCount = du.values().count();
