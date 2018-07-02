@@ -23,6 +23,11 @@ QSharedPointer<QQueue<QModbusDataUnit>> ActionThread::actionQueue() const
     return m_actionQueue;
 }
 
+void ActionThread::clearActionQueue()
+{
+    m_actionQueue.clear();
+}
+
 modbus_t *ActionThread::modbusConnection() const
 {
     return m_modbusConn;

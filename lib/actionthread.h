@@ -35,6 +35,7 @@ public:
     void setModbusConnection(modbus_t *modbusConnection);
 
 protected:
+    void clearActionQueue();
     modbus_t *modbusConnection() const;
 
 private:

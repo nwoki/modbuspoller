@@ -115,6 +115,10 @@ void Poller::disconnectDevice()
         modbus_free(d->libModbusClient);
         d->libModbusClient = nullptr;
 
+        // and reset the pointers to the modbus client.
+        d->readActionThread->setModbusConnection(nullptr);
+        d->writeActionThread->setModbusConnection(nullptr);
+
         setConnectionState(UNCONNECTED);
     }
 }
