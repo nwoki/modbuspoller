@@ -138,6 +138,7 @@ protected:
     virtual void dataReady(const QModbusDataUnit &readData) = 0;
 
 private Q_SLOTS:
+    void onLibModbusReadError(const QString &errorStr);
     void onLibModbusReplyFinished(const QModbusDataUnit &modbusReply);
     void onLibmodbusWriteFinished();
     void onModbusReplyFinished();

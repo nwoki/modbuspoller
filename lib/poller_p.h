@@ -34,6 +34,7 @@ public:
         , backend(backend)
         , readActionThread(nullptr)
         , writeActionThread(nullptr)
+        , errorCount(0)
     {}
 
     ~PollerPrivate()
@@ -66,6 +67,9 @@ public:
     // the read and write commands work in a seperate thread
     ReadActionThread *readActionThread;
     WriteActionThread *writeActionThread;
+
+    // error counter. Used to keep track of how many consecutive read/write errors occurr.
+    quint8 errorCount;
 };
 
 }   // ModbusPoller

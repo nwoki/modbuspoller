@@ -38,6 +38,7 @@ Poller::Poller(Backend backend, const QModbusDataUnit &defaultCommand, quint16 p
         d->writeActionThread = new WriteActionThread(d->writeQueue, this);
 
         connect(d->readActionThread, &ReadActionThread::modbusResponseReceived, this, &Poller::onLibModbusReplyFinished);
+        connect(d->readActionThread, &ReadActionThread::modbusReadError, this, &Poller::onLibModbusReadError);
 
         // it's sufficient for us to just check the thread runtime for determining when the write procedure finishes as the write
         // to modbus doesn't have to return any data
@@ -138,17 +139,40 @@ int Poller::pollingInterval() const
     return d->pollTimer->interval();
 }
 
+void Poller::onLibModbusReadError(const QString &errorStr)
+{
+    d->errorCount += 1;
+
+    // if the error count reaches the hit mark, disconnect the serial/tcp connection and
+    // notify that there's a problem
+    if (d->errorCount >= 3) {
+        disconnectDevice();
+        Q_EMIT connectionError("Multiple read/write errors. Device disconnected: " + errorStr);
+
+        // and reset the counter
+        d->errorCount = 0;
+    } else {
+        // restart the timer
+        d->pollTimer->start();
+    }
+}
+
 void Poller::onLibModbusReplyFinished(const QModbusDataUnit &modbusReply)
 {
     qDebug("[Poller::onLibModbusReplyFinished]");
     Q_EMIT dataReady(modbusReply);
 
+    // reset the error counter
+    d->errorCount = 0;
     d->pollTimer->start();
 }
 
 void Poller::onLibmodbusWriteFinished()
 {
     qDebug("[Poller::onLibmodbusWriteFinished]");
+
+    // reset the error counter
+    d->errorCount = 0;
     d->pollTimer->start();
 }
 
