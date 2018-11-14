@@ -133,6 +133,11 @@ void Poller::enqueueWriteCommand(const QModbusDataUnit &writeCommand)
     d->writeQueue.data()->enqueue(writeCommand);
 }
 
+int Poller::pollingInterval() const
+{
+    return d->pollTimer->interval();
+}
+
 void Poller::onLibModbusReplyFinished(const QModbusDataUnit &modbusReply)
 {
     qDebug("[Poller::onLibModbusReplyFinished]");

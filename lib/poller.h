@@ -99,6 +99,8 @@ public:
      */
     void enqueueWriteCommand(const QModbusDataUnit &writeCommand);
 
+    int pollingInterval() const;
+
     /**
      * @brief prepareReadCommand
      * @param the type of reading/writing to do
