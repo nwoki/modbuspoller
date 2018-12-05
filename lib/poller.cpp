@@ -83,7 +83,8 @@ void Poller::connectDevice()
         modbus_set_debug(d->libModbusClient, true);
 
         /* Define a new and too short timeout! */
-        modbus_set_response_timeout(d->libModbusClient, 1, 0);
+//        modbus_set_response_timeout(d->libModbusClient, 1, 0);
+        modbus_set_response_timeout(d->libModbusClient, 5, 0);
 
         // update our action reader/writes
         d->readActionThread->setModbusConnection(d->libModbusClient);
@@ -139,8 +140,11 @@ int Poller::pollingInterval() const
     return d->pollTimer->interval();
 }
 
-void Poller::onLibModbusReadError(const QString &errorStr)
+void Poller::onLibModbusReadError(const QString &errorStr, int errNum)
 {
+    // notify that we've got an error so that the developer can decide what to do with it
+    Q_EMIT modbusError(errNum);
+
     d->errorCount += 1;
 
     // if the error count reaches the hit mark, disconnect the serial/tcp connection and
@@ -426,22 +430,31 @@ void Poller::setupTcpConnection(const QString &hostAddress, int port, int respon
         // the Qt backend connections
         setupModbusClientConnections();
     } else {
+        qDebug("1");
+        qDebug() << "modebusclient " << d->libModbusClient;
+        qDebug() << "host: " << hostAddress.toLatin1();
+        qDebug() << "port: " << port;
         if (d->libModbusClient != nullptr) {
+            qDebug("2");
             disconnectDevice();
         }
 
+        qDebug() << "creating from: " << d->libModbusClient;
         // setup libmodbus in tcp mode
         d->libModbusClient = modbus_new_tcp(hostAddress.toLatin1().constData(), port);
+        qDebug() << "to: " << d->libModbusClient;
     }
 }
 
 void Poller::start()
 {
     if (!d->pollTimer->isActive()) {
+        qDebug("in ..");
         d->pollTimer->start();
 
         setState(POLLING);
     }
+    qDebug(".. out");
 }
 
 Poller::State Poller::state() const

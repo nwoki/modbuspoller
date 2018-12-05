@@ -128,6 +128,7 @@ public:
 Q_SIGNALS:
     void connectionError(const QString &errorStr);
     void connectionStateChanged(Poller::ConnectionState connectionState);
+    void modbusError(int errNum);
     void stateChanged(Poller::State state); // todo - rename to "pollerState"
 
 protected:
@@ -138,7 +139,7 @@ protected:
     virtual void dataReady(const QModbusDataUnit &readData) = 0;
 
 private Q_SLOTS:
-    void onLibModbusReadError(const QString &errorStr);
+    void onLibModbusReadError(const QString &errorStr, int errNum);
     void onLibModbusReplyFinished(const QModbusDataUnit &modbusReply);
     void onLibmodbusWriteFinished();
     void onModbusReplyFinished();
