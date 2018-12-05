@@ -418,6 +418,13 @@ void Poller::setupTcpConnection(const QString &hostAddress, int port, int respon
         d->modbusClient = new QModbusTcpClient();
         d->modbusClient->setConnectionParameter(QModbusDevice::NetworkAddressParameter, hostAddress);
         d->modbusClient->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
+
+        // TODO activate later
+    //    d->modbusClient->setTimeout(responseTimeout);
+    //    d->modbusClient->setNumberOfRetries(numberOfRetries);
+
+        // the Qt backend connections
+        setupModbusClientConnections();
     } else {
         if (d->libModbusClient != nullptr) {
             disconnectDevice();
@@ -426,12 +433,6 @@ void Poller::setupTcpConnection(const QString &hostAddress, int port, int respon
         // setup libmodbus in tcp mode
         d->libModbusClient = modbus_new_tcp(hostAddress.toLatin1().constData(), port);
     }
-
-    // TODO activate later
-//    d->modbusClient->setTimeout(responseTimeout);
-//    d->modbusClient->setNumberOfRetries(numberOfRetries);
-
-    setupModbusClientConnections();
 }
 
 void Poller::start()
