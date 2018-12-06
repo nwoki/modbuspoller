@@ -128,6 +128,7 @@ public:
 Q_SIGNALS:
     void connectionError(const QString &errorStr);
     void connectionStateChanged(Poller::ConnectionState connectionState);
+    void disconnectRequestReceived();
     void modbusError(int errNum);
     void stateChanged(Poller::State state); // todo - rename to "pollerState"
 

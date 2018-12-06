@@ -6,6 +6,7 @@
 #include "poller.h"
 #include "poller_global.h"
 
+#include <QtCore/QEventLoop>
 #include <QtCore/QQueue>
 #include <QtCore/QSharedPointer>
 #include <QtCore/QTimer>
@@ -35,6 +36,7 @@ public:
         , readActionThread(nullptr)
         , writeActionThread(nullptr)
         , errorCount(0)
+        , disconnectRequest(false)
     {}
 
     ~PollerPrivate()
@@ -70,6 +72,12 @@ public:
 
     // error counter. Used to keep track of how many consecutive read/write errors occurr.
     quint8 errorCount;
+
+    bool disconnectRequest;
+
+    // Event loop used during the disconnection phase. It waits for the modbus response
+    // to arrive before freeing the modbus resource.
+    QEventLoop disconnectLoop;
 };
 
 }   // ModbusPoller

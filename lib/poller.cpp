@@ -83,7 +83,7 @@ void Poller::connectDevice(uint32_t responseTimeoutSec, uint32_t responseTimeout
         modbus_set_debug(d->libModbusClient, true);
 
         /* Define a new and too short timeout! */
-        modbus_set_response_timeout(d->libModbusClient, responseTimeoutSec, responseTimeoutUSec),
+        modbus_set_response_timeout(d->libModbusClient, responseTimeoutSec, responseTimeoutUSec);
 
         // update our action reader/writes
         d->readActionThread->setModbusConnection(d->libModbusClient);
@@ -95,9 +95,33 @@ void Poller::connectDevice(uint32_t responseTimeoutSec, uint32_t responseTimeout
 
 void Poller::disconnectDevice()
 {
-    // stop poller before disconnecting
-    if (d->state == POLLING) {
-        stop();
+    qDebug("[Poller::disconnectDevice]");
+
+    if (d->connectionState == CONNECTED) {
+        // request the device disconnection. This flag simply tells the poller not to resume polling when the last response
+        // is received
+        d->disconnectRequest = true;
+
+        // wait for the last read to return before killing the poller. Otherwise we end up killing the modbus thread while it's still reading
+        // and we get a disconect error (110)
+        QMetaObject::Connection lambdaConn = connect(this, &Poller::disconnectRequestReceived, [this] () {
+            qDebug("[Poller::disconnectDevice] ok, now i can return to disconnecting the device");
+            // ok, now i can quit.
+            d->disconnectLoop.quit();
+            qDebug("[Poller::disconnectDevice] Exiting loop...");
+        });
+
+        qDebug("[Poller::disconnectDevice] Waiting for the last response..");
+        d->disconnectLoop.exec();
+        qDebug("[Poller::disconnectDevice] ... wait over!");
+
+        qDebug() << "Disconnecting: " << QObject::disconnect(lambdaConn);
+
+
+        // stop poller before disconnecting
+        if (d->state == POLLING) {
+            stop();
+        }
     }
 
     if (d->backend == QtModbusBackend) {
@@ -167,7 +191,15 @@ void Poller::onLibModbusReplyFinished(const QModbusDataUnit &modbusReply)
 
     // reset the error counter
     d->errorCount = 0;
-    d->pollTimer->start();
+
+    // did i request a disconnect ?
+    if (d->disconnectRequest) {
+        qDebug("[Poller::onLibModbusReplyFinished] ok, want to disconnect ...");
+        d->disconnectRequest = false;
+        Q_EMIT disconnectRequestReceived();
+    } else {
+        d->pollTimer->start();
+    }
 }
 
 void Poller::onLibmodbusWriteFinished()
