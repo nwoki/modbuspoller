@@ -43,30 +43,42 @@ void ReadActionThread::run()
         // don't forget to tell modbus from which slave to read from
         modbus_set_slave(modbusConnection(), 1);
 
+        bool encountedError = false;
+
         switch (du.registerType()) {
             case QModbusDataUnit::HoldingRegisters:
                 if (modbus_read_registers(modbusConnection(), du.startAddress(), valuesCount, dest16) == -1) {
-                    qDebug("[ReadActionThread::run] ERROR READING FROM MODBUS");
-                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)));
+                    qDebug("[ReadActionThread::run] ERROR READING HOLDING REGISTERS FROM MODBUS");
+                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)), errno);
+                    encountedError = true;
                 }
             break;
             case QModbusDataUnit::InputRegisters:
                 if (modbus_read_input_registers(modbusConnection(), du.startAddress(), valuesCount, dest16) == -1) {
-                    qDebug("[ReadActionThread::run] ERROR READING FROM MODBUS");
-                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)));
+                    qDebug("[ReadActionThread::run] ERROR READING INPUT REGISTERS FROM MODBUS");
+                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)), errno);
+                    encountedError = true;
                 }
             break;
 
-            // TODO : other register type cases
+            // TODO : other register type cases. Currently unhandled
+            case QModbusDataUnit::Invalid:
+            case QModbusDataUnit::DiscreteInputs:
+            case QModbusDataUnit::Coils:
+            default:
+                // TODO
+            break;
         }
 
-        // create the response object
-        QVector<quint16> readValues;
-        for (int i = 0; i < valuesCount; ++i) {
-            readValues.push_back(dest16[i]);
-        }
+        // create the response object. Don't send the data if we have an error. It will result in a misread (all values set to 0)
+        if (!encountedError) {
+            QVector<quint16> readValues;
+            for (int i = 0; i < valuesCount; ++i) {
+                readValues.push_back(dest16[i]);
+            }
 
-        Q_EMIT modbusResponseReceived(QModbusDataUnit(du.registerType(), du.startAddress(), readValues));
+            Q_EMIT modbusResponseReceived(QModbusDataUnit(du.registerType(), du.startAddress(), readValues));
+        }
     }
 }
 

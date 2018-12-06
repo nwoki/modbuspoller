@@ -22,7 +22,7 @@ public:
     ~ReadActionThread();
 
 Q_SIGNALS:
-    void modbusReadError(const QString &errorStr);
+    void modbusReadError(const QString &errorStr, int errNum = 0);
     void modbusResponseReceived(const QModbusDataUnit &dataUnit);
 
 protected:

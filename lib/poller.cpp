@@ -38,6 +38,7 @@ Poller::Poller(Backend backend, const QModbusDataUnit &defaultCommand, quint16 p
         d->writeActionThread = new WriteActionThread(d->writeQueue, this);
 
         connect(d->readActionThread, &ReadActionThread::modbusResponseReceived, this, &Poller::onLibModbusReplyFinished);
+        connect(d->readActionThread, &ReadActionThread::modbusReadError, this, &Poller::onLibModbusReadError);
 
         // it's sufficient for us to just check the thread runtime for determining when the write procedure finishes as the write
         // to modbus doesn't have to return any data
@@ -50,7 +51,7 @@ Poller::~Poller()
     delete d;
 }
 
-void Poller::connectDevice()
+void Poller::connectDevice(uint32_t responseTimeoutSec, uint32_t responseTimeoutUSec)
 {
     if (d->backend == QtModbusBackend) {
         if (!d->modbusClient) {
@@ -82,7 +83,7 @@ void Poller::connectDevice()
         modbus_set_debug(d->libModbusClient, true);
 
         /* Define a new and too short timeout! */
-        modbus_set_response_timeout(d->libModbusClient, 1, 0);
+        modbus_set_response_timeout(d->libModbusClient, responseTimeoutSec, responseTimeoutUSec),
 
         // update our action reader/writes
         d->readActionThread->setModbusConnection(d->libModbusClient);
@@ -138,17 +139,43 @@ int Poller::pollingInterval() const
     return d->pollTimer->interval();
 }
 
+void Poller::onLibModbusReadError(const QString &errorStr, int errNum)
+{
+    // notify that we've got an error so that the developer can decide what to do with it
+    Q_EMIT modbusError(errNum);
+
+    d->errorCount += 1;
+
+    // if the error count reaches the hit mark, disconnect the serial/tcp connection and
+    // notify that there's a problem
+    if (d->errorCount >= 3) {
+        disconnectDevice();
+        Q_EMIT connectionError("Multiple read/write errors. Device disconnected: " + errorStr);
+
+        // and reset the counter
+        d->errorCount = 0;
+    } else {
+        // restart the timer
+        d->pollTimer->start();
+    }
+}
+
 void Poller::onLibModbusReplyFinished(const QModbusDataUnit &modbusReply)
 {
     qDebug("[Poller::onLibModbusReplyFinished]");
     Q_EMIT dataReady(modbusReply);
 
+    // reset the error counter
+    d->errorCount = 0;
     d->pollTimer->start();
 }
 
 void Poller::onLibmodbusWriteFinished()
 {
     qDebug("[Poller::onLibmodbusWriteFinished]");
+
+    // reset the error counter
+    d->errorCount = 0;
     d->pollTimer->start();
 }
 
@@ -394,6 +421,13 @@ void Poller::setupTcpConnection(const QString &hostAddress, int port, int respon
         d->modbusClient = new QModbusTcpClient();
         d->modbusClient->setConnectionParameter(QModbusDevice::NetworkAddressParameter, hostAddress);
         d->modbusClient->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
+
+        // TODO activate later
+    //    d->modbusClient->setTimeout(responseTimeout);
+    //    d->modbusClient->setNumberOfRetries(numberOfRetries);
+
+        // the Qt backend connections
+        setupModbusClientConnections();
     } else {
         if (d->libModbusClient != nullptr) {
             disconnectDevice();
@@ -402,12 +436,6 @@ void Poller::setupTcpConnection(const QString &hostAddress, int port, int respon
         // setup libmodbus in tcp mode
         d->libModbusClient = modbus_new_tcp(hostAddress.toLatin1().constData(), port);
     }
-
-    // TODO activate later
-//    d->modbusClient->setTimeout(responseTimeout);
-//    d->modbusClient->setNumberOfRetries(numberOfRetries);
-
-    setupModbusClientConnections();
 }
 
 void Poller::start()
