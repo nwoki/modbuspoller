@@ -82,7 +82,7 @@ public:
     virtual ~Poller();
 
     /** establishes a modbus connection */
-    void connectDevice();
+    void connectDevice(uint32_t responseTimeoutSec = 1, uint32_t responseTimeoutUSec = 0);
 
     /** disconnects the current modbus connection */
     void disconnectDevice();

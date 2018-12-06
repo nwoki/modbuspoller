@@ -51,7 +51,7 @@ Poller::~Poller()
     delete d;
 }
 
-void Poller::connectDevice()
+void Poller::connectDevice(uint32_t responseTimeoutSec, uint32_t responseTimeoutUSec)
 {
     if (d->backend == QtModbusBackend) {
         if (!d->modbusClient) {
@@ -83,8 +83,7 @@ void Poller::connectDevice()
         modbus_set_debug(d->libModbusClient, true);
 
         /* Define a new and too short timeout! */
-//        modbus_set_response_timeout(d->libModbusClient, 1, 0);
-        modbus_set_response_timeout(d->libModbusClient, 5, 0);
+        modbus_set_response_timeout(d->libModbusClient, responseTimeoutSec, responseTimeoutUSec),
 
         // update our action reader/writes
         d->readActionThread->setModbusConnection(d->libModbusClient);
