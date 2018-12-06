@@ -51,7 +51,7 @@ Poller::~Poller()
     delete d;
 }
 
-void Poller::connectDevice()
+void Poller::connectDevice(uint32_t responseTimeoutSec, uint32_t responseTimeoutUSec)
 {
     if (d->backend == QtModbusBackend) {
         if (!d->modbusClient) {
@@ -83,7 +83,7 @@ void Poller::connectDevice()
         modbus_set_debug(d->libModbusClient, true);
 
         /* Define a new and too short timeout! */
-        modbus_set_response_timeout(d->libModbusClient, 1, 0);
+        modbus_set_response_timeout(d->libModbusClient, responseTimeoutSec, responseTimeoutUSec),
 
         // update our action reader/writes
         d->readActionThread->setModbusConnection(d->libModbusClient);
@@ -139,8 +139,11 @@ int Poller::pollingInterval() const
     return d->pollTimer->interval();
 }
 
-void Poller::onLibModbusReadError(const QString &errorStr)
+void Poller::onLibModbusReadError(const QString &errorStr, int errNum)
 {
+    // notify that we've got an error so that the developer can decide what to do with it
+    Q_EMIT modbusError(errNum);
+
     d->errorCount += 1;
 
     // if the error count reaches the hit mark, disconnect the serial/tcp connection and

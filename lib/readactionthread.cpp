@@ -48,15 +48,15 @@ void ReadActionThread::run()
         switch (du.registerType()) {
             case QModbusDataUnit::HoldingRegisters:
                 if (modbus_read_registers(modbusConnection(), du.startAddress(), valuesCount, dest16) == -1) {
-                    qDebug("[ReadActionThread::run] ERROR READING FROM MODBUS");
-                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)));
+                    qDebug("[ReadActionThread::run] ERROR READING HOLDING REGISTERS FROM MODBUS");
+                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)), errno);
                     encountedError = true;
                 }
             break;
             case QModbusDataUnit::InputRegisters:
                 if (modbus_read_input_registers(modbusConnection(), du.startAddress(), valuesCount, dest16) == -1) {
-                    qDebug("[ReadActionThread::run] ERROR READING FROM MODBUS");
-                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)));
+                    qDebug("[ReadActionThread::run] ERROR READING INPUT REGISTERS FROM MODBUS");
+                    Q_EMIT modbusReadError(QString("[ReadActionThread::run] %1").arg(modbus_strerror(errno)), errno);
                     encountedError = true;
                 }
             break;
