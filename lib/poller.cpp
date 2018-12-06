@@ -429,31 +429,22 @@ void Poller::setupTcpConnection(const QString &hostAddress, int port, int respon
         // the Qt backend connections
         setupModbusClientConnections();
     } else {
-        qDebug("1");
-        qDebug() << "modebusclient " << d->libModbusClient;
-        qDebug() << "host: " << hostAddress.toLatin1();
-        qDebug() << "port: " << port;
         if (d->libModbusClient != nullptr) {
-            qDebug("2");
             disconnectDevice();
         }
 
-        qDebug() << "creating from: " << d->libModbusClient;
         // setup libmodbus in tcp mode
         d->libModbusClient = modbus_new_tcp(hostAddress.toLatin1().constData(), port);
-        qDebug() << "to: " << d->libModbusClient;
     }
 }
 
 void Poller::start()
 {
     if (!d->pollTimer->isActive()) {
-        qDebug("in ..");
         d->pollTimer->start();
 
         setState(POLLING);
     }
-    qDebug(".. out");
 }
 
 Poller::State Poller::state() const
