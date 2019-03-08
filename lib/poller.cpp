@@ -82,8 +82,12 @@ void Poller::connectDevice(uint32_t responseTimeoutSec, uint32_t responseTimeout
 
         modbus_set_debug(d->libModbusClient, true);
 
+        /* Let the modbus lib handle connection re-establishment in case of problems due to the
+         * environment it's working in */
+        modbus_set_error_recovery(d->libModbusClient, MODBUS_ERROR_RECOVERY_LINK);
+
         /* Define a new and too short timeout! */
-        modbus_set_response_timeout(d->libModbusClient, responseTimeoutSec, responseTimeoutUSec),
+        modbus_set_response_timeout(d->libModbusClient, responseTimeoutSec, responseTimeoutUSec);
 
         // update our action reader/writes
         d->readActionThread->setModbusConnection(d->libModbusClient);
