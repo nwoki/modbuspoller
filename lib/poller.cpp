@@ -84,7 +84,7 @@ void Poller::connectDevice(uint32_t responseTimeoutSec, uint32_t responseTimeout
 
         /* Let the modbus lib handle connection re-establishment in case of problems due to the
          * environment it's working in */
-        modbus_set_error_recovery(d->libModbusClient, MODBUS_ERROR_RECOVERY_LINK);
+        modbus_set_error_recovery(d->libModbusClient, d->modbusRecovery);
 
         /* Define a new and too short timeout! */
         modbus_set_response_timeout(d->libModbusClient, responseTimeoutSec, responseTimeoutUSec);
@@ -352,6 +352,21 @@ void Poller::setupModbusClientConnections()
                     break;
             }
         });
+    }
+}
+
+void Poller::setRecoveryMode(RecoveryMode recoveryMode)
+{
+    switch (recoveryMode) {
+        case RECOVERY_NONE:
+            d->modbusRecovery = MODBUS_ERROR_RECOVERY_NONE;
+            break;
+        case RECOVERY_LINK:
+            d->modbusRecovery = MODBUS_ERROR_RECOVERY_LINK;
+            break;
+        case RECOVERY_PROTOCOL:
+            d->modbusRecovery = MODBUS_ERROR_RECOVERY_PROTOCOL;
+            break;
     }
 }
 

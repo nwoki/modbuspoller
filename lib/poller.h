@@ -57,6 +57,17 @@ public:
     };
     Q_ENUM(ConnectionState)
 
+    /**
+     * @brief The RecoveryMode enum
+     * The recovery mode to use with modbus
+     */
+    enum RecoveryMode {
+        RECOVERY_NONE,
+        RECOVERY_LINK,
+        RECOVERY_PROTOCOL
+    };
+    Q_ENUM(RecoveryMode)
+
 
     /**
      * @brief The State enum
@@ -113,6 +124,7 @@ public:
     // DEPRECATED
 //    void setModbusClient(QModbusClient *modbusClient);
 
+    void setRecoveryMode(RecoveryMode recoveryMode);
     void setupSerialConnection(const QString &serialPortPath, int parity, int baud, int dataBits, int stopBits, int responseTimeout = 200, int numberOfRetries = 3);
     void setupTcpConnection(const QString &hostAddress, int port, int responseTimeout = 200, int numberOfRetries = 3);
 

@@ -35,6 +35,7 @@ public:
         , readActionThread(nullptr)
         , writeActionThread(nullptr)
         , errorCount(0)
+        , modbusRecovery(MODBUS_ERROR_RECOVERY_NONE)
     {}
 
     ~PollerPrivate()
@@ -70,6 +71,9 @@ public:
 
     // error counter. Used to keep track of how many consecutive read/write errors occurr.
     quint8 errorCount;
+
+    // error recovery mode to use
+    modbus_error_recovery_mode modbusRecovery;
 };
 
 }   // ModbusPoller
